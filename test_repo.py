@@ -6,7 +6,8 @@ import pytest
 from datetime import datetime, timedelta
 from src.repo_miner import (
     fetch_commits,
-)  # , fetch_issues, merge_and_summarize <-- commented until implemented
+    fetch_issues,
+)  # , merge_and_summarize <-- commented until implemented
 
 # --- Helpers for dummy GitHub API objects ---
 
@@ -132,8 +133,93 @@ def test_fetch_commits_limit(monkeypatch):
 
 
 def test_fetch_commits_empty(monkeypatch):
-    # TODO: Test that fetch_commits returns empty DataFrame when no commits exist.
     commits = []
     gh_instance._repo = DummyRepo(commits, [])
     df = fetch_commits("any/repo")
     assert len(df) == 0
+
+
+def test_fetch_issues_dates(monkeypatch):
+    now = datetime.now()
+    issues = [
+        DummyIssue(1, 101, "Issue A", "alice", "open",
+                   datetime(2025, 10, 2), None, 0),
+        DummyIssue(2, 102, "Issue B", "bob", "closed",
+                   now - timedelta(days=2), now, 2),
+    ]
+    gh_instance._repo = DummyRepo([], issues)
+    df = fetch_issues("any/repo", state="all")
+    assert {
+        "id",
+        "number",
+        "title",
+        "user",
+        "state",
+        "created_at",
+        "closed_at",
+        "comments",
+    }.issubset(df.columns)
+    assert len(df) == 2
+    # Check date normalization
+    assert str(df.iloc[0, 5]).startswith(
+        "2025-10-02"
+    )  # use first issue to test format of string
+    assert df.iloc[1, 8] == 2  # check second issue's days_open
+
+
+def test_fetch_issues_time_open_days(monkeypatch):
+    now = datetime.now()
+    issues = [
+        DummyIssue(1, 101, "Issue A", "alice", "open",
+                   datetime(2025, 10, 2), None, 0),
+        DummyIssue(2, 102, "Issue B", "bob", "closed",
+                   now - timedelta(days=2), now, 2),
+    ]
+    gh_instance._repo = DummyRepo([], issues)
+    df = fetch_issues("any/repo", state="all")
+    assert {
+        "id",
+        "number",
+        "title",
+        "user",
+        "state",
+        "created_at",
+        "closed_at",
+        "comments",
+    }.issubset(df.columns)
+    assert len(df) == 2
+    assert df.iloc[1, 8] == 2  # check second issue's days_open
+
+
+def test_fetch_issues_pr_excluded(monkeypatch):
+    now = datetime.now()
+    issues = [
+        DummyIssue(1, 101, "Issue A", "alice", "open",
+                   datetime(2025, 10, 2), None, 0),
+        DummyIssue(
+            2,
+            102,
+            "PR A",
+            "bob",
+            "closed",
+            now - timedelta(days=2),
+            now - timedelta(days=1),
+            2,
+            is_pr=True,
+        ),
+        DummyIssue(3, 103, "Issue B", "bob", "closed",
+                   now - timedelta(days=2), now, 2),
+    ]
+    gh_instance._repo = DummyRepo([], issues)
+    df = fetch_issues("any/repo", state="all")
+    assert {
+        "id",
+        "number",
+        "title",
+        "user",
+        "state",
+        "created_at",
+        "closed_at",
+        "comments",
+    }.issubset(df.columns)
+    assert len(df) == 2  # check that we actually only get 2 back, instead of 3
