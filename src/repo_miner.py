@@ -127,8 +127,8 @@ def merge_and_summarize(commits_df: pd.DataFrame, issues_df: pd.DataFrame) -> No
         f"Avg. issue open duration: {
             sum(
                 (
-                    (issues['created_at'][i] - issues['closed_at'][i]).days
-                    if issues['closed_at'][i] is not None
+                    (issues['closed_at'][i] - issues['created_at'][i]).days
+                    if pd.notna(issues['closed_at'][i])
                     else 0
                 )
                 for i in range(len(issues['created_at']))
