@@ -4,10 +4,7 @@ import os
 import pandas as pd
 import pytest
 from datetime import datetime, timedelta
-from src.repo_miner import (
-    fetch_commits,
-    fetch_issues,
-)  # , merge_and_summarize <-- commented until implemented
+from src.repo_miner import fetch_commits, fetch_issues, merge_and_summarize
 
 # --- Helpers for dummy GitHub API objects ---
 
@@ -28,8 +25,7 @@ class DummyCommitCommit:
 class DummyCommit:
     def __init__(self, sha, author, email, date, message):
         self.sha = sha
-        self.commit = DummyCommitCommit(
-            DummyAuthor(author, email, date), message)
+        self.commit = DummyCommitCommit(DummyAuthor(author, email, date), message)
 
 
 class DummyUser:
@@ -105,10 +101,8 @@ def test_fetch_commits_basic(monkeypatch):
     # Setup dummy commits
     now = datetime.now()
     commits = [
-        DummyCommit("sha1", "Alice", "a@example.com",
-                    now, "Initial commit\nDetails"),
-        DummyCommit("sha2", "Bob", "b@example.com",
-                    now - timedelta(days=1), "Bug fix"),
+        DummyCommit("sha1", "Alice", "a@example.com", now, "Initial commit\nDetails"),
+        DummyCommit("sha2", "Bob", "b@example.com", now - timedelta(days=1), "Bug fix"),
     ]
     gh_instance._repo = DummyRepo(commits, [])
     df = fetch_commits("any/repo")
@@ -122,10 +116,8 @@ def test_fetch_commits_limit(monkeypatch):
     # TODO： Test that fetch_commits respects the max_commits limit.
     now = datetime.now()
     commits = [
-        DummyCommit("sha1", "Alice", "a@example.com",
-                    now, "Initial commit\nDetails"),
-        DummyCommit("sha2", "Bob", "b@example.com",
-                    now - timedelta(days=1), "Bug fix"),
+        DummyCommit("sha1", "Alice", "a@example.com", now, "Initial commit\nDetails"),
+        DummyCommit("sha2", "Bob", "b@example.com", now - timedelta(days=1), "Bug fix"),
     ]
     gh_instance._repo = DummyRepo(commits, [])
     df = fetch_commits("any/repo", max_commits=1)
@@ -142,10 +134,8 @@ def test_fetch_commits_empty(monkeypatch):
 def test_fetch_issues_dates(monkeypatch):
     now = datetime.now()
     issues = [
-        DummyIssue(1, 101, "Issue A", "alice", "open",
-                   datetime(2025, 10, 2), None, 0),
-        DummyIssue(2, 102, "Issue B", "bob", "closed",
-                   now - timedelta(days=2), now, 2),
+        DummyIssue(1, 101, "Issue A", "alice", "open", datetime(2025, 10, 2), None, 0),
+        DummyIssue(2, 102, "Issue B", "bob", "closed", now - timedelta(days=2), now, 2),
     ]
     gh_instance._repo = DummyRepo([], issues)
     df = fetch_issues("any/repo", state="all")
@@ -170,10 +160,8 @@ def test_fetch_issues_dates(monkeypatch):
 def test_fetch_issues_time_open_days(monkeypatch):
     now = datetime.now()
     issues = [
-        DummyIssue(1, 101, "Issue A", "alice", "open",
-                   datetime(2025, 10, 2), None, 0),
-        DummyIssue(2, 102, "Issue B", "bob", "closed",
-                   now - timedelta(days=2), now, 2),
+        DummyIssue(1, 101, "Issue A", "alice", "open", datetime(2025, 10, 2), None, 0),
+        DummyIssue(2, 102, "Issue B", "bob", "closed", now - timedelta(days=2), now, 2),
     ]
     gh_instance._repo = DummyRepo([], issues)
     df = fetch_issues("any/repo", state="all")
@@ -194,8 +182,7 @@ def test_fetch_issues_time_open_days(monkeypatch):
 def test_fetch_issues_pr_excluded(monkeypatch):
     now = datetime.now()
     issues = [
-        DummyIssue(1, 101, "Issue A", "alice", "open",
-                   datetime(2025, 10, 2), None, 0),
+        DummyIssue(1, 101, "Issue A", "alice", "open", datetime(2025, 10, 2), None, 0),
         DummyIssue(
             2,
             102,
@@ -207,8 +194,7 @@ def test_fetch_issues_pr_excluded(monkeypatch):
             2,
             is_pr=True,
         ),
-        DummyIssue(3, 103, "Issue B", "bob", "closed",
-                   now - timedelta(days=2), now, 2),
+        DummyIssue(3, 103, "Issue B", "bob", "closed", now - timedelta(days=2), now, 2),
     ]
     gh_instance._repo = DummyRepo([], issues)
     df = fetch_issues("any/repo", state="all")
@@ -223,3 +209,47 @@ def test_fetch_issues_pr_excluded(monkeypatch):
         "comments",
     }.issubset(df.columns)
     assert len(df) == 2  # check that we actually only get 2 back, instead of 3
+
+
+def test_merge_and_summarize_output(capsys):
+    # Prepare test DataFrames
+    df_commits = pd.DataFrame(
+        {
+            "sha": ["a", "b", "c", "d"],
+            "author": ["X", "Y", "X", "Z"],
+            "email": ["x@e", "y@e", "x@e", "z@e"],
+            "date": [
+                "2025-01-01T00:00:00",
+                "2025-01-01T01:00:00",
+                "2025-01-02T00:00:00",
+                "2025-01-02T01:00:00",
+            ],
+            "message": ["m1", "m2", "m3", "m4"],
+        }
+    )
+    df_issues = pd.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "number": [101, 102, 103],
+            "title": ["I1", "I2", "I3"],
+            "user": ["u1", "u2", "u3"],
+            "state": ["closed", "open", "closed"],
+            "created_at": [
+                "2025-01-01T00:00:00",
+                "2025-01-01T02:00:00",
+                "2025-01-02T00:00:00",
+            ],
+            "closed_at": ["2025-01-01T12:00:00", None, "2025-01-02T12:00:00"],
+            "comments": [0, 1, 2],
+        }
+    )
+    # Run summarize
+    merge_and_summarize(df_commits, df_issues)
+    captured = capsys.readouterr().out
+    # Check top committer
+    assert "Top 5 committers" in captured
+    assert "X: 2 commits" in captured
+    # Check close rate
+    assert "Issue close rate: 0.67" in captured
+    # Check avg open duration
+    assert "Avg. issue open duration:" in captured

@@ -22,3 +22,7 @@ This project depends on PyGitHub and Pandas, among other libraries. To install t
     - `python -m src.repo_miner fetch-commits --repo octocat/Hello-World [--max 2] [--out commits_limited.csv]`
  - `fetch-issues` is similar, following the format: 
     - `python -m src.repo_miner fetch-issues --repo owner/repo [--state all|open|closed] [--max 50] --out issues.csv`
+ - `summarize` uses the following format: 
+    - `python -m src.repo_miner summarize --commits commits.csv --issues issues.csv` 
+        - where commits.csv and issues.csv are the csv files outputted by the previous two commands
+
